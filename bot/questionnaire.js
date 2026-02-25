@@ -2,7 +2,7 @@
 // 取代原本的固定 4 題狀態機，改用 AI 判斷回答品質並自然引導對話
 
 const { v4: uuidv4 } = require('uuid');
-const { get, run } = require('../db/database');
+const { all, get, run } = require('../db/database');
 const { lineReply, linePush } = require('./line-api');
 const { callOpenRouter } = require('./openrouter');
 const { REQUIREMENT_COLLECTION_PROMPT } = require('./system-prompt');
@@ -31,6 +31,32 @@ function isExpired(session) {
   return Date.now() - session.startedAt > TIMEOUT_MS;
 }
 
+// ── Skills 快取（避免每次對話都查 DB） ──
+
+let skillsCache = null;
+let skillsCacheTime = 0;
+const SKILLS_CACHE_TTL = 5 * 60 * 1000; // 5 分鐘
+
+async function getActiveSkills() {
+  if (skillsCache && Date.now() - skillsCacheTime < SKILLS_CACHE_TTL) {
+    return skillsCache;
+  }
+  const rows = await all('SELECT display_name, category, description FROM skills WHERE is_active = true ORDER BY category, display_name');
+  skillsCache = rows;
+  skillsCacheTime = Date.now();
+  return rows;
+}
+
+function formatSkillsForPrompt(skills) {
+  if (!skills || skills.length === 0) {
+    return '（目前尚未建立服務方案，所有需求都以客製開發方式處理）';
+  }
+  return skills.map(s => {
+    const desc = s.description ? ` — ${s.description}` : '';
+    return `・【${s.display_name}】（${s.category}）${desc}`;
+  }).join('\n');
+}
+
 // ── 資料庫操作 ──
 
 async function saveConversation(clientId, groupId, userId, userName, role, message, metadata) {
@@ -53,14 +79,14 @@ async function findOrCreateClient(groupId, userId, userName, company) {
   return await get('SELECT * FROM clients WHERE id = ?', [id]);
 }
 
-async function createTicket(clientId, summaryText, userName) {
+async function createTicket(clientId, summaryText, userName, matchedSkillId) {
   const id = uuidv4();
   const title = `${userName} - 需求收集`;
 
   await run(
-    `INSERT INTO tickets (id, client_id, title, status, requirement_json, priority)
-     VALUES (?, ?, ?, 'collecting', ?, 'normal')`,
-    [id, clientId, title, JSON.stringify({ summary: summaryText })]
+    `INSERT INTO tickets (id, client_id, title, status, requirement_json, priority, skill_id)
+     VALUES (?, ?, ?, 'collecting', ?, 'normal', ?)`,
+    [id, clientId, title, JSON.stringify({ summary: summaryText }), matchedSkillId || null]
   );
 
   await run(
@@ -99,14 +125,35 @@ function extractCompanyFromSummary(summaryText) {
   return null;
 }
 
+// ── 從摘要關鍵字匹配最相關的 Skill（內部參考，不顯示給客戶） ──
+
+async function matchSkillFromSummary(summaryText) {
+  const skills = await getActiveSkills();
+  if (!skills || skills.length === 0) return null;
+
+  // 簡單關鍵字比對：看摘要中是否包含某個 Skill 的 display_name 或 description 關鍵字
+  for (const s of skills) {
+    if (summaryText.includes(s.display_name)) {
+      const full = await get('SELECT id FROM skills WHERE display_name = ? AND is_active = true', [s.display_name]);
+      return full ? full.id : null;
+    }
+  }
+  return null;
+}
+
 // ── AI 對話核心 ──
 
 async function getAIResponse(session, config) {
   const botName = config.botName || '白澤小桃';
 
+  // 讀取 Skills 並注入 System Prompt
+  const skills = await getActiveSkills();
+  const skillsText = formatSkillsForPrompt(skills);
+  const prompt = REQUIREMENT_COLLECTION_PROMPT.replace('{SKILLS_PLACEHOLDER}', skillsText);
+
   // 建立 AI 訊息陣列
   const messages = [
-    { role: 'system', content: REQUIREMENT_COLLECTION_PROMPT },
+    { role: 'system', content: prompt },
     ...session.history,
   ];
 
@@ -244,8 +291,9 @@ async function handleConfirming(session, groupId, userId, userName, text, replyT
   const confirmWords = ['確認', '確定', 'yes', 'ok', 'OK', '沒問題', '可以', '對', '好'];
   if (confirmWords.includes(normalized)) {
     const companyName = extractCompanyFromSummary(session.summaryText || '') || userName;
+    const matchedSkillId = await matchSkillFromSummary(session.summaryText || '');
     const client = await findOrCreateClient(groupId, userId, userName, companyName);
-    const ticket = await createTicket(client.id, session.summaryText || '', userName);
+    const ticket = await createTicket(client.id, session.summaryText || '', userName, matchedSkillId);
 
     // 把之前沒有 client_id 的對話記錄補上
     await run(

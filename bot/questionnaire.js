@@ -195,8 +195,40 @@ async function handleQuestionnaire(groupId, userId, userName, text, replyToken, 
   const inGroup = isGroupChat(groupId, userId);
   const userIsAdmin = isAdmin(userId, config);
 
-  // ── 管理者在群組中 → 完全忽略，不啟動也不回應 ──
+  // ── 管理者在群組中 → 處理管理指令，其餘忽略 ──
   if (userIsAdmin && inGroup) {
+    const cmd = text.trim().toLowerCase();
+
+    // /reset — 清除該群組的對話 session
+    if (cmd === '/reset' || cmd === '/重置') {
+      if (sessions.has(groupId)) {
+        sessions.delete(groupId);
+        await lineReply(replyToken, '🔄 已重置對話，客戶可以重新開始囉！');
+      } else {
+        await lineReply(replyToken, '目前沒有進行中的對話 🍑');
+      }
+      return true;
+    }
+
+    // /status — 查看該群組目前的對話狀態
+    if (cmd === '/status' || cmd === '/狀態') {
+      if (sessions.has(groupId)) {
+        const s = sessions.get(groupId);
+        const mins = Math.round((Date.now() - s.startedAt) / 60000);
+        await lineReply(replyToken, [
+          `📊 對話狀態`,
+          `客戶：${s.userName}`,
+          `階段：${s.phase === 'collecting' ? '收集中' : '確認中'}`,
+          `對話輪次：${s.turnCount}`,
+          `已進行：${mins} 分鐘`,
+        ].join('\n'));
+      } else {
+        await lineReply(replyToken, '目前沒有進行中的對話 🍑');
+      }
+      return true;
+    }
+
+    // 其他管理者訊息 → 忽略
     return false;
   }
 

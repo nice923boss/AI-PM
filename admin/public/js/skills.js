@@ -38,6 +38,7 @@ async function load_skills() {
           ${s.demo_url ? `<a href="${escapeHtml(s.demo_url)}" target="_blank" class="btn btn-secondary btn-sm" style="margin-top:8px">Demo</a>` : ''}
           <div style="margin-top:12px;display:flex;gap:8px">
             <button class="btn btn-secondary btn-sm" onclick="editSkill('${s.id}')">編輯</button>
+            <button class="btn btn-sm" style="background:var(--danger);color:#fff" onclick="deleteSkill('${s.id}','${escapeHtml(s.display_name)}')">刪除</button>
           </div>
         </div>
       </div>
@@ -105,8 +106,19 @@ async function saveSkill() {
   }
 }
 
+async function deleteSkill(id, name) {
+  if (!confirm(`確定要刪除「${name}」嗎？此操作無法復原。`)) return;
+  try {
+    await api(`/skills/${id}`, { method: 'DELETE' });
+    load_skills();
+  } catch (err) {
+    alert('刪除失敗: ' + err.message);
+  }
+}
+
 window.openSkillModal = openSkillModal;
 window.closeSkillModal = closeSkillModal;
 window.editSkill = editSkill;
 window.saveSkill = saveSkill;
+window.deleteSkill = deleteSkill;
 window.load_skills = load_skills;

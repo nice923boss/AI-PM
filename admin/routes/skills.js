@@ -49,4 +49,18 @@ router.put('/:id', async (req, res) => {
   res.json(await get('SELECT * FROM skills WHERE id = ?', [req.params.id]));
 });
 
+router.delete('/:id', async (req, res) => {
+  const existing = await get('SELECT * FROM skills WHERE id = ?', [req.params.id]);
+  if (!existing) return res.status(404).json({ error: '找不到 Skill' });
+
+  // 檢查是否有工單引用此 Skill
+  const linked = await get('SELECT id FROM tickets WHERE skill_id = ?', [req.params.id]);
+  if (linked) {
+    return res.status(409).json({ error: '此 Skill 仍有關聯工單，無法刪除。請先移除工單中的 Skill 關聯。' });
+  }
+
+  await run('DELETE FROM skills WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
 module.exports = router;

@@ -94,16 +94,16 @@ app.use('/api/conversations', authMiddleware, conversationsRoutes);
 app.use('/api/settings', authMiddleware, settingsRoutes);
 
 // --- Notifications API ---
-app.get('/api/notifications', authMiddleware, (req, res) => {
+app.get('/api/notifications', authMiddleware, async (req, res) => {
   const unread = req.query.unread === 'true';
   let sql = 'SELECT * FROM notifications';
-  if (unread) sql += ' WHERE is_read = 0';
+  if (unread) sql += ' WHERE is_read = false';
   sql += ' ORDER BY created_at DESC LIMIT 50';
-  res.json(all(sql));
+  res.json(await all(sql));
 });
 
-app.put('/api/notifications/:id/read', authMiddleware, (req, res) => {
-  run('UPDATE notifications SET is_read = 1 WHERE id = ?', [req.params.id]);
+app.put('/api/notifications/:id/read', authMiddleware, async (req, res) => {
+  await run('UPDATE notifications SET is_read = true WHERE id = ?', [req.params.id]);
   res.json({ success: true });
 });
 
@@ -142,7 +142,7 @@ function startKeepAlive() {
   }, 14 * 60 * 1000);
 }
 
-// --- Start Server (async for sql.js init) ---
+// --- Start Server (async for PostgreSQL init) ---
 async function start() {
   await initDatabase();
   console.log('Database initialized');

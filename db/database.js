@@ -1,35 +1,29 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
+// ─── PostgreSQL Database (Supabase) ───
 
-const DB_PATH = path.join(__dirname, 'ai-pm.db');
+const { Pool, types } = require('pg');
 
-let db = null;
+// Parse bigint (COUNT(*) returns bigint) as JavaScript number
+types.setTypeParser(20, (val) => parseInt(val, 10));
 
-function saveToDisk() {
-  if (!db) return;
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
-}
+let pool = null;
 
-function startAutoSave() {
-  setInterval(saveToDisk, 30000);
-  process.on('exit', saveToDisk);
-  process.on('SIGINT', () => { saveToDisk(); process.exit(); });
-  process.on('SIGTERM', () => { saveToDisk(); process.exit(); });
+/**
+ * Convert SQLite-style ? placeholders to PostgreSQL $1, $2, ...
+ * This lets all existing queries work without modification.
+ */
+function convertPlaceholders(sql) {
+  let index = 0;
+  return sql.replace(/\?/g, () => `$${++index}`);
 }
 
 async function initDatabase() {
-  const SQL = await initSqlJs();
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
 
-  if (fs.existsSync(DB_PATH)) {
-    const fileBuffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
-  }
-
-  db.run('PRAGMA foreign_keys = ON');
+  // Test connection
+  await pool.query('SELECT NOW()');
 
   // Create all tables
   const schemas = [
@@ -37,46 +31,52 @@ async function initDatabase() {
       id TEXT PRIMARY KEY, name TEXT NOT NULL, company TEXT,
       line_group_id TEXT UNIQUE, line_user_id TEXT,
       contact_email TEXT, contact_phone TEXT, notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS skills (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, display_name TEXT NOT NULL,
       category TEXT NOT NULL, description TEXT, demo_url TEXT,
       pricing_tier TEXT DEFAULT 'standard', base_price INTEGER,
-      features_json TEXT, is_active BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      features_json TEXT, is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS tickets (
-      id TEXT PRIMARY KEY, client_id TEXT NOT NULL, title TEXT NOT NULL,
+      id TEXT PRIMARY KEY, client_id TEXT NOT NULL,
+      title TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'collecting', requirement_json TEXT,
       skill_id TEXT, price INTEGER, price_note TEXT, delivery_url TEXT,
       admin_notes TEXT, priority TEXT DEFAULT 'normal',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      quoted_at DATETIME, paid_at DATETIME, delivered_at DATETIME, closed_at DATETIME,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      quoted_at TIMESTAMPTZ, paid_at TIMESTAMPTZ,
+      delivered_at TIMESTAMPTZ, closed_at TIMESTAMPTZ,
       FOREIGN KEY (client_id) REFERENCES clients(id),
       FOREIGN KEY (skill_id) REFERENCES skills(id)
     )`,
     `CREATE TABLE IF NOT EXISTS conversations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT,
+      id SERIAL PRIMARY KEY, client_id TEXT,
       line_group_id TEXT, line_user_id TEXT, user_name TEXT,
       role TEXT, message TEXT NOT NULL, metadata_json TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
       FOREIGN KEY (client_id) REFERENCES clients(id)
     )`,
     `CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY, value TEXT NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS notifications (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id TEXT,
-      type TEXT NOT NULL, content TEXT NOT NULL, is_read BOOLEAN DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      id SERIAL PRIMARY KEY, ticket_id TEXT,
+      type TEXT NOT NULL, content TEXT NOT NULL,
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
       FOREIGN KEY (ticket_id) REFERENCES tickets(id)
-    )`
+    )`,
   ];
-  schemas.forEach(sql => db.run(sql));
+
+  for (const sql of schemas) {
+    await pool.query(sql);
+  }
 
   // Indexes
   const indexes = [
@@ -85,34 +85,32 @@ async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_conversations_client_id ON conversations(client_id)',
     'CREATE INDEX IF NOT EXISTS idx_conversations_line_group_id ON conversations(line_group_id)',
     'CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)',
-    'CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category)'
+    'CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category)',
   ];
-  indexes.forEach(sql => db.run(sql));
 
-  saveToDisk();
-  startAutoSave();
-  return db;
+  for (const sql of indexes) {
+    await pool.query(sql);
+  }
+
+  console.log('PostgreSQL connected and schema ready');
 }
 
-// Query helpers — bridge sql.js to a familiar API
+// ── Query helpers (same API as before, now async) ──
 
-function all(sql, params = []) {
-  const stmt = db.prepare(sql);
-  if (params.length) stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
+async function all(sql, params = []) {
+  const pgSql = convertPlaceholders(sql);
+  const { rows } = await pool.query(pgSql, params);
   return rows;
 }
 
-function get(sql, params = []) {
-  const rows = all(sql, params);
+async function get(sql, params = []) {
+  const rows = await all(sql, params);
   return rows[0] || null;
 }
 
-function run(sql, params = []) {
-  db.run(sql, params);
-  saveToDisk();
+async function run(sql, params = []) {
+  const pgSql = convertPlaceholders(sql);
+  await pool.query(pgSql, params);
 }
 
 module.exports = { initDatabase, all, get, run };

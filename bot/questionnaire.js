@@ -33,42 +33,42 @@ function isExpired(session) {
 
 // ── 資料庫操作 ──
 
-function saveConversation(clientId, groupId, userId, userName, role, message, metadata) {
-  run(
+async function saveConversation(clientId, groupId, userId, userName, role, message, metadata) {
+  await run(
     `INSERT INTO conversations (client_id, line_group_id, line_user_id, user_name, role, message, metadata_json)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [clientId, groupId, userId, userName, role, message, metadata ? JSON.stringify(metadata) : null]
   );
 }
 
-function findOrCreateClient(groupId, userId, userName, company) {
-  const existing = get('SELECT * FROM clients WHERE line_group_id = ?', [groupId]);
+async function findOrCreateClient(groupId, userId, userName, company) {
+  const existing = await get('SELECT * FROM clients WHERE line_group_id = ?', [groupId]);
   if (existing) return existing;
 
   const id = uuidv4();
-  run(
+  await run(
     'INSERT INTO clients (id, name, company, line_group_id, line_user_id) VALUES (?, ?, ?, ?, ?)',
     [id, userName, company, groupId, userId]
   );
-  return get('SELECT * FROM clients WHERE id = ?', [id]);
+  return await get('SELECT * FROM clients WHERE id = ?', [id]);
 }
 
-function createTicket(clientId, summaryText, userName) {
+async function createTicket(clientId, summaryText, userName) {
   const id = uuidv4();
   const title = `${userName} - 需求收集`;
 
-  run(
+  await run(
     `INSERT INTO tickets (id, client_id, title, status, requirement_json, priority)
      VALUES (?, ?, ?, 'collecting', ?, 'normal')`,
     [id, clientId, title, JSON.stringify({ summary: summaryText })]
   );
 
-  run(
+  await run(
     `INSERT INTO notifications (ticket_id, type, content) VALUES (?, 'new_ticket', ?)`,
     [id, `新工單：${title}`]
   );
 
-  return get('SELECT * FROM tickets WHERE id = ?', [id]);
+  return await get('SELECT * FROM tickets WHERE id = ?', [id]);
 }
 
 // ── 觸發關鍵字判斷 ──
@@ -171,7 +171,7 @@ async function handleQuestionnaire(groupId, userId, userName, text, replyToken, 
     newSession.history.push({ role: 'assistant', content: greeting });
 
     await lineReply(replyToken, greeting);
-    saveConversation(null, groupId, null, botName, 'bot', greeting, { phase: 'greeting' });
+    await saveConversation(null, groupId, null, botName, 'bot', greeting, { phase: 'greeting' });
     return true;
   }
 
@@ -188,7 +188,7 @@ async function handleQuestionnaire(groupId, userId, userName, text, replyToken, 
   // 記錄使用者訊息
   session.history.push({ role: 'user', content: text });
   session.turnCount += 1;
-  saveConversation(null, groupId, userId, userName, 'user', text, { phase: session.phase });
+  await saveConversation(null, groupId, userId, userName, 'user', text, { phase: session.phase });
 
   // ── 確認階段 ──
   if (session.phase === 'confirming') {
@@ -211,7 +211,7 @@ async function handleCollecting(session, groupId, userId, userName, text, replyT
     const fallback = '不好意思，我剛才恍神了一下 😅 可以再說一次嗎？';
     session.history.push({ role: 'assistant', content: fallback });
     await lineReply(replyToken, fallback);
-    saveConversation(null, groupId, null, botName, 'bot', fallback, { phase: 'collecting', error: true });
+    await saveConversation(null, groupId, null, botName, 'bot', fallback, { phase: 'collecting', error: true });
     return true;
   }
 
@@ -223,14 +223,14 @@ async function handleCollecting(session, groupId, userId, userName, text, replyT
     session.history.push({ role: 'assistant', content: cleanResponse });
 
     await lineReply(replyToken, cleanResponse);
-    saveConversation(null, groupId, null, botName, 'bot', cleanResponse, { phase: 'confirming' });
+    await saveConversation(null, groupId, null, botName, 'bot', cleanResponse, { phase: 'confirming' });
     return true;
   }
 
   // 一般對話回覆
   session.history.push({ role: 'assistant', content: aiResponse });
   await lineReply(replyToken, aiResponse);
-  saveConversation(null, groupId, null, botName, 'bot', aiResponse, { phase: 'collecting' });
+  await saveConversation(null, groupId, null, botName, 'bot', aiResponse, { phase: 'collecting' });
   return true;
 }
 
@@ -244,11 +244,11 @@ async function handleConfirming(session, groupId, userId, userName, text, replyT
   const confirmWords = ['確認', '確定', 'yes', 'ok', 'OK', '沒問題', '可以', '對', '好'];
   if (confirmWords.includes(normalized)) {
     const companyName = extractCompanyFromSummary(session.summaryText || '') || userName;
-    const client = findOrCreateClient(groupId, userId, userName, companyName);
-    const ticket = createTicket(client.id, session.summaryText || '', userName);
+    const client = await findOrCreateClient(groupId, userId, userName, companyName);
+    const ticket = await createTicket(client.id, session.summaryText || '', userName);
 
     // 把之前沒有 client_id 的對話記錄補上
-    run(
+    await run(
       'UPDATE conversations SET client_id = ? WHERE line_group_id = ? AND client_id IS NULL',
       [client.id, groupId]
     );
@@ -263,7 +263,7 @@ async function handleConfirming(session, groupId, userId, userName, text, replyT
     ].join('\n');
 
     await lineReply(replyToken, doneMsg);
-    saveConversation(client.id, groupId, null, botName, 'bot', doneMsg, { phase: 'done' });
+    await saveConversation(client.id, groupId, null, botName, 'bot', doneMsg, { phase: 'done' });
 
     // 通知管理員
     const adminLineId = config.adminLineUserId;

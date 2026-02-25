@@ -210,9 +210,9 @@ async function handleQuestionnaire(groupId, userId, userName, text, replyToken, 
     const greeting = [
       `🍑 嗨 ${userName}！我是${botName}。`,
       '',
-      '我是你的專案助理，會幫你釐清需求，讓我們的團隊能為你量身打造最適合的工具。',
+      '我是你的專案助理，專門幫你規劃「什麼樣的工具」最能解決你的問題，然後由我們的團隊量身打造給你 🍑',
       '',
-      '先聊聊吧——你們公司主要是做什麼的呢？或是可以先說說想解決什麼問題？',
+      '先聊聊吧——你想打造什麼樣的工具呢？或是可以先說說目前遇到什麼困擾，我來想想能用什麼工具幫你！',
     ].join('\n');
 
     newSession.history.push({ role: 'assistant', content: greeting });

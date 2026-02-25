@@ -48,6 +48,17 @@ async function handleLineEvent(event) {
   const userId = event.source.userId;
   const groupId = event.source.groupId || event.source.roomId || userId;
 
+  // /myid command — reply with user's LINE userId (for admin debugging)
+  if (text.trim() === '/myid') {
+    const info = [
+      `👤 你的 LINE 資訊`,
+      `userId: ${userId}`,
+      groupId !== userId ? `groupId: ${groupId}` : '（1 對 1 聊天）',
+    ].join('\n');
+    await lineReply(replyToken, info);
+    return;
+  }
+
   const userName = await getDisplayName(userId, event.source.groupId);
 
   // Try questionnaire handler first

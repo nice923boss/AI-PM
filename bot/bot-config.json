@@ -2,6 +2,6 @@
   "botName": "白澤小桃",
   "triggerKeywords": ["@小桃", "@助理", "白澤小桃", "專案助理"],
   "commandPrefixes": ["/需求", "/新需求"],
-  "adminLineUserId": "",
+  "adminLineUserId": "Ufd674b29faac39a215e17275f6230ff3",
   "questionnaireTimeoutMinutes": 30
 }

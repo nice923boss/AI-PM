@@ -126,11 +126,32 @@ async function getAIResponse(session, config) {
   return response;
 }
 
+// ── 判斷是否為管理者 ──
+
+function isAdmin(userId, config) {
+  const adminId = config.adminLineUserId;
+  return adminId && userId === adminId;
+}
+
+// ── 判斷是否為群組（非 1 對 1） ──
+
+function isGroupChat(groupId, userId) {
+  // 在 1 對 1 聊天中，groupId 會被設為 userId（因為沒有 groupId）
+  return groupId !== userId;
+}
+
 // ── 主要入口 ──
 
 async function handleQuestionnaire(groupId, userId, userName, text, replyToken, config) {
   const session = sessions.get(groupId);
   const botName = config.botName || '白澤小桃';
+  const inGroup = isGroupChat(groupId, userId);
+  const userIsAdmin = isAdmin(userId, config);
+
+  // ── 管理者在群組中 → 完全忽略，不啟動也不回應 ──
+  if (userIsAdmin && inGroup) {
+    return false;
+  }
 
   // ── 沒有進行中的 session：檢查觸發 ──
   if (!session) {
@@ -154,7 +175,7 @@ async function handleQuestionnaire(groupId, userId, userName, text, replyToken, 
     return true;
   }
 
-  // ── 不是本人 → 忽略 ──
+  // ── 不是 session 發起者 → 忽略 ──
   if (session.userId !== userId) return false;
 
   // ── 逾時 ──

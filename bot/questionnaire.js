@@ -129,11 +129,14 @@ async function handleQuestionnaire(groupId, userId, userName, text, replyToken, 
     const newSession = createSession(userId, userName);
     sessions.set(groupId, newSession);
 
+    const botName = config.botName || '專案助理';
     const greeting = [
-      `嗨 ${userName}！我是專案助理`,
+      `🍑 嗨 ${userName}！我是${botName}。`,
       '',
-      '我來協助您收集需求，整個過程大約需要 2-3 分鐘。',
-      '完成後我們的專業團隊會盡快為您評估與報價。',
+      '接下來我會用 4 個簡單的問題，幫你整理需求。',
+      '大約只需要 2-3 分鐘，完成後我們的專業團隊會盡快為你評估與報價。',
+      '',
+      '那我們開始囉！',
       '',
       `第 1 題（共 4 題）：${STEPS[0].question}`,
     ].join('\n');

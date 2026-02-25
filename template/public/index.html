@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 智慧工具</title>
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="header-logo" id="header-logo"></span>
+      <h1 class="header-title" id="header-title">AI 智慧工具</h1>
+    </div>
+  </header>
+
+  <!-- Chat Area -->
+  <main class="chat-container" id="chat-container">
+    <div class="chat-welcome" id="chat-welcome">
+      <div class="welcome-icon">&#9733;</div>
+      <h2 id="welcome-title">歡迎使用 AI 智慧工具</h2>
+      <p id="welcome-desc">請在下方輸入您的問題，我會盡力協助您。</p>
+    </div>
+  </main>
+
+  <!-- Input Area -->
+  <footer class="input-area">
+    <div class="input-wrapper">
+      <textarea
+        id="user-input"
+        class="input-field"
+        placeholder="輸入訊息..."
+        rows="1"
+        maxlength="4000"
+      ></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
+        &#10148;
+      </button>
+    </div>
+    <div class="input-hint">
+      <span id="char-count">0</span>/4000
+    </div>
+  </footer>
+</div>
+
+<script src="js/chat.js"></script>
+</body>
+</html>

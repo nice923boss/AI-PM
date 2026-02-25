@@ -1,0 +1,217 @@
+/* ─── CSS Variables Brand Theme ─── */
+/* Claude Code 部署時根據客戶品牌客製化這些變數 */
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --primary-light: #eff6ff;
+  --accent: #f59e0b;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08);
+  --max-width: 800px;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Reset ─── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ─── App Container ─── */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+/* ─── Header ─── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.125rem;
+}
+.header-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ─── Chat Container ─── */
+.chat-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.chat-welcome {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-secondary);
+}
+.welcome-icon {
+  font-size: 3rem;
+  color: var(--primary);
+  margin-bottom: 16px;
+}
+.chat-welcome h2 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.chat-welcome p {
+  font-size: .9375rem;
+  color: var(--text-muted);
+}
+
+/* ─── Messages ─── */
+.message {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.message.user {
+  align-items: flex-end;
+}
+.message.assistant {
+  align-items: flex-start;
+}
+.message-bubble {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: .9375rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.message.user .message-bubble {
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.message.assistant .message-bubble {
+  background: var(--primary-light);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+
+/* ─── Typing Indicator ─── */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px;
+}
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: typing 1.2s infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing {
+  0%, 60%, 100% { opacity: .3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+/* ─── Input Area ─── */
+.input-area {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  transition: border-color .2s;
+}
+.input-wrapper:focus-within {
+  border-color: var(--primary);
+}
+.input-field {
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  font-size: .9375rem;
+  font-family: inherit;
+  line-height: 1.5;
+  max-height: 120px;
+  background: transparent;
+  color: var(--text);
+}
+.send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity .2s;
+  flex-shrink: 0;
+}
+.send-btn:disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+.send-btn:not(:disabled):hover {
+  background: var(--primary-dark);
+}
+.input-hint {
+  text-align: right;
+  font-size: .75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding-right: 4px;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+  .app-container { max-width: 100%; }
+  .chat-container { padding: 12px; }
+  .message-bubble { max-width: 90%; }
+}

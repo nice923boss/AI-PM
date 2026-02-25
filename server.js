@@ -97,13 +97,18 @@ app.put('/api/notifications/:id/read', authMiddleware, (req, res) => {
 });
 
 // --- Health Check ---
-app.get('/', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     name: 'AI-PM',
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString()
   });
+});
+
+// --- Root redirect to Admin ---
+app.get('/', (req, res) => {
+  res.redirect('/admin');
 });
 
 // --- Admin SPA Fallback ---
@@ -116,9 +121,10 @@ function startKeepAlive() {
   const url = process.env.RENDER_EXTERNAL_URL || process.env.KEEP_ALIVE_URL;
   if (!url) return;
 
+  const healthUrl = url.replace(/\/$/, '') + '/health';
   setInterval(async () => {
     try {
-      await fetch(url);
+      await fetch(healthUrl);
     } catch (_) {
       // Ignore keep-alive errors
     }

@@ -5,7 +5,7 @@ let currentGroupId = null;
 
 async function load_conversations() {
   try {
-    conversationGroups = await api('/api/conversations/groups');
+    conversationGroups = await api('/conversations/groups');
     renderGroupList();
 
     if (conversationGroups.length > 0 && !currentGroupId) {
@@ -52,7 +52,7 @@ async function selectGroup(groupId) {
   chatContainer.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8">載入中...</div>';
 
   try {
-    const messages = await api(`/api/conversations?group_id=${encodeURIComponent(groupId)}&limit=200`);
+    const messages = await api(`/conversations?group_id=${encodeURIComponent(groupId)}&limit=200`);
     // Reverse to show chronological order (API returns DESC)
     const sorted = [...messages].reverse();
     renderChat(sorted);

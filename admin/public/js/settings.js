@@ -11,7 +11,7 @@ let currentSettings = {};
 
 async function load_settings() {
   try {
-    currentSettings = await api('/api/settings');
+    currentSettings = await api('/settings');
     renderSettings();
   } catch (err) {
     console.error('Failed to load settings:', err);
@@ -69,7 +69,7 @@ async function toggleSetting(key, checked) {
 
 async function saveSetting(key, value) {
   try {
-    await api('/api/settings', {
+    await api('/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key, value }),
